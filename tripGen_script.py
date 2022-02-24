@@ -61,6 +61,5 @@ if __name__ == "__main__":
         if output is None:
             continue
         output_df = utils.parse_output(output)
-        print(output_df)
-        #output_df_with_osm_time = utils.get_osm_travel_time(output_df,network_graph,new_edges,edges)
-        #print(output_df_with_osm_time)
+        output_df_with_osm_time = utils.get_osm_travel_time(output_df,network_graph,new_edges,edges)
+        print(output_df_with_osm_time)

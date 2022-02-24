@@ -35,8 +35,8 @@ def map_single_trip(
     work_loc = None
     output = []
     last_activity = datetime.strptime("2022/01/01 04:00:00", "%Y/%m/%d %H:%M:%S")
-    home_edge_id = get_nearest_edge(home_loc, balltree_nodes, nodes, new_edges)
-    output.append([home_loc[0], home_loc[1],last_activity, None, 1, home_edge_id, None])
+    home_edge_id, home_edge_index = get_nearest_edge(home_loc, balltree_nodes, nodes, new_edges)
+    output.append([home_loc[0], home_loc[1],last_activity, None, 1, home_edge_id, home_edge_index,None])
 
     for transient in parsed_trip:
         # calculate activity duration
@@ -59,11 +59,11 @@ def map_single_trip(
         # to be mapped for the first time.
         if trip_purpose == 1: #home
             start_loc = home_loc
-            output.append([home_loc[0], home_loc[1], transient[3], activity_duration, trip_purpose, home_edge_id, driving_time])
+            output.append([home_loc[0], home_loc[1], transient[3], activity_duration, trip_purpose, home_edge_id,home_edge_index, driving_time])
             continue
         if trip_purpose == 2 and work_loc is not None: # work
             start_loc = work_loc
-            output.append([work_loc[0], work_loc[1], transient[3], activity_duration, trip_purpose, work_edge_id, driving_time])
+            output.append([work_loc[0], work_loc[1], transient[3], activity_duration, trip_purpose, work_edge_id,work_edge_index, driving_time])
             continue
 
         # ==================mapping process=======================
@@ -92,10 +92,11 @@ def map_single_trip(
 
         # 6. update variables for next iteration
         start_loc = [poi_x, poi_y]
-        nearest_edge_id = get_nearest_edge(start_loc,balltree_nodes,nodes,new_edges)
+        nearest_edge_id, nearest_edge_index = get_nearest_edge(start_loc,balltree_nodes,nodes,new_edges)
         if trip_purpose==2 and work_loc is None:
             work_loc = [poi_x, poi_y]
             work_edge_id = nearest_edge_id
-        output.append([poi_x,poi_y,transient[3],activity_duration,trip_purpose,nearest_edge_id,driving_time])
+            work_edge_index = nearest_edge_index
+        output.append([poi_x,poi_y,transient[3],activity_duration,trip_purpose,nearest_edge_id,nearest_edge_index,driving_time])
 
     return output

@@ -116,9 +116,11 @@ def get_nearest_edge(loc,balltree_nodes,nodes_df,new_edges_df) ->int:
     index=index[0][0]
     edge_id=new_edges_df[(new_edges_df['u']==nodes_df.index[index]) |\
                          (new_edges_df['v']==nodes_df.index[index])]['osmid'].values[0]
+    edge_index = new_edges_df[(new_edges_df['u'] == nodes_df.index[index]) | \
+                           (new_edges_df['v'] == nodes_df.index[index])].index.values[0]
     if isinstance(edge_id,list): # might find duplicates
         edge_id=edge_id[0]
-    return edge_id
+    return edge_id, edge_index
 
 
 def find_qualified_tazs_using_shortestpath(
@@ -207,6 +209,7 @@ def parse_output(output: list)->pd.DataFrame:
     x_list = []
     y_list = []
     nearest_id_list = []
+    nearest_index_list = []
     end_time_list = []
     activity_duration_list = []
     trip_purpose_list = []
@@ -219,12 +222,13 @@ def parse_output(output: list)->pd.DataFrame:
         activity_duration_list.append(o[3])
         trip_purpose_list.append(o[4])
         nearest_id_list.append(o[5])
-        driving_duration_list.append(o[6])
+        nearest_index_list.append(o[6])
+        driving_duration_list.append(o[7])
 
     df = pd.DataFrame(np.array(
         [x_list, y_list, end_time_list, activity_duration_list, trip_purpose_list, nearest_id_list,
-         driving_duration_list]).T,
-                      columns=['x', 'y', 'end_time', 'duration', 'purpose', 'nearest_edge_id', 'driving_minutes'])
+         nearest_index_list, driving_duration_list]).T,
+                      columns=['x', 'y', 'end_time', 'duration', 'purpose', 'nearest_edge_id','nearest_edge_index', 'driving_minutes'])
     return df
 
 
@@ -232,12 +236,11 @@ def get_osm_travel_time(trip_df,graph,new_edges,edges):
     """
     supplement a new column for the output dataframe: the estimated travel time in OSM
     """
-    edge_list=list(trip_df['nearest_edge_id'])
+    edge_index_list=list(trip_df['nearest_edge_index'])
     travel_time_list=[None]
-    print(edge_list)
-    for i in range(1,len(edge_list)):
-        start_node=new_edges[new_edges['osmid']==edge_list[i-1]]['u'].values[0]
-        end_node=new_edges[new_edges['osmid']==edge_list[i]]['u'].values[0]
+    for i in range(1,len(edge_index_list)):
+        start_node = new_edges.iloc[edge_index_list[i - 1], :]['u']
+        end_node = new_edges.iloc[edge_index_list[i], :]['v']
         travel_path=ox.shortest_path(graph,start_node,end_node,weight="travel_time")
         travel_time=get_total_travel_time(travel_path,edges)
         travel_time=round(travel_time/60,1)

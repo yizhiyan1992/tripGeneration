@@ -39,13 +39,14 @@ def load_stochastic_activity_data(activity_filepath: pathlib.WindowsPath) -> pd.
     activity_df : pandas.DataFrame
         return the activity dataframe
     """
-    activity_df = pd.read_csv(activity_filepath)
+    trip_df = pd.read_csv(activity_filepath, index_col=0)
     logging.info("========activity data is successfully loaded.========")
-    return activity_df
+    return trip_df
 
 
 def load_household_location_data():
     pass
+
 
 
 def load_taz_data(taz_filepath: pathlib.WindowsPath) -> gpd.GeoDataFrame:
@@ -101,7 +102,7 @@ def load_od_data(od_folder_path):
     od_files = [f for f in od_folder_path.iterdir() if f.suffix == ".csv"]
     od_dict = dict()
     for od_file in od_files:
-        od_dict[od_file.name] = pd.read_csv(od_file)
+        od_dict[od_file.stem] = pd.read_csv(od_file)
     logging.info("========OD data is successfully loaded.=========")
     return od_dict
 
@@ -197,7 +198,14 @@ def load_required_dataset(folder_path, **kwargs):
         network_graph = load_osm_network(north, south, east, west)
     # return the packed dataset in a dictionary
     logging.info("********all required data are successfully loaded.********")
-    return
+    data_dict ={
+        "activity_df" : activity_df,
+        "poi_df" : poi_df,
+        "taz_gdf" : taz_gdf,
+        "od_dict" : od_dict,
+        "network_graph" : network_graph
+    }
+    return data_dict
 
 
 if __name__ == "__main__":

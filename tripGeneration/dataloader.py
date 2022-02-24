@@ -15,6 +15,7 @@ The required data are listed as follows:
 import logging
 import pathlib
 from pathlib import Path
+import pickle
 
 import geopandas as gpd
 import networkx
@@ -107,6 +108,16 @@ def load_od_data(od_folder_path):
     return od_dict
 
 
+def load_precomputed_travel_time(precomputed_tt_path):
+    """
+    The precomputed travel time file is a pkl saving the dictionary, where the key is "node_A-node_B",
+    and the value is the shortest travel time from node_A to node_B.
+    """
+    with open(precomputed_tt_path,"rb") as f:
+        precomputed_dict = pickle.load(f)
+    return precomputed_dict
+
+
 def load_osm_network(north: float, south: float, east: float, west: float, crs: str = "epsg:26912")\
         -> networkx.MultiDiGraph:
     """
@@ -165,6 +176,11 @@ def load_required_dataset(folder_path, **kwargs):
     else:
         od_folder = "od_folder"
 
+    if "precomputed_tt" in kwargs:
+        precomputed_tt_filename = kwargs["precomputed_tt"]
+    else:
+        precomputed_tt_filename = "precomputed_tt.pkl"
+
     # check if those files exist
     folder_dir = Path(folder_path)
     od_dir = folder_dir.joinpath(od_folder)
@@ -172,6 +188,7 @@ def load_required_dataset(folder_path, **kwargs):
     poi_fp = folder_dir.joinpath(poi_filename)
     network_fp = folder_dir.joinpath(network_filename)
     activity_fp = folder_dir.joinpath(activity_filename)
+    precomputed_tt_fp = folder_dir.joinpath(precomputed_tt_filename)
     # add hh distribution later
     if not folder_dir.is_dir():
         raise FileNotFoundError("The input file directory does not exist.")
@@ -185,6 +202,8 @@ def load_required_dataset(folder_path, **kwargs):
         raise FileNotFoundError("The network file does not exist.")
     if not activity_fp.is_file():
         raise FileNotFoundError("The activity file does not exist.")
+    if not precomputed_tt_fp.is_file():
+        raise FileNotFoundError("The precomputed travel time pkl file does not exist.")
     # add check for hh distribution later
 
     # start to load each data
@@ -192,6 +211,7 @@ def load_required_dataset(folder_path, **kwargs):
     poi_df = load_poi_data(poi_fp)
     taz_gdf = load_taz_data(taz_fp)
     od_dict = load_od_data(od_dir)
+    precomputed_travel_time_dict = load_precomputed_travel_time(precomputed_tt_fp)
     with open(network_fp) as f:
         bbox_string_list = f.read().split(",")
         north, south, east, west = list(map(float, bbox_string_list))
@@ -203,7 +223,8 @@ def load_required_dataset(folder_path, **kwargs):
         "poi_df" : poi_df,
         "taz_gdf" : taz_gdf,
         "od_dict" : od_dict,
-        "network_graph" : network_graph
+        "network_graph" : network_graph,
+        "precomputed_travel_time_dict" : precomputed_travel_time_dict
     }
     return data_dict
 

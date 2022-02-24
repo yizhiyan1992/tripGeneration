@@ -4,7 +4,6 @@ Preprocess the trip
 import logging
 import numpy as np
 from pathlib import Path
-import pickle
 
 from sklearn.neighbors import BallTree
 import osmnx as ox
@@ -29,6 +28,7 @@ if __name__ == "__main__":
     poi_df = data_dict["poi_df"]
     taz_gdf = data_dict["taz_gdf"]
     od_dict = data_dict["od_dict"]
+    precomputed_travel_time_dict = data_dict["precomputed_travel_time_dict"]
     network_graph = data_dict["network_graph"]
     nodes, edges = ox.graph_to_gdfs(network_graph)
     new_edges = edges.reset_index()
@@ -52,8 +52,6 @@ if __name__ == "__main__":
     logging.info("==========================================")
     logging.info("=======       location matching    =======")
     logging.info("==========================================")
-    with open("C:/Users/Zhiyan/Desktop/pre_computed_travel_time.pkl", "rb") as f:
-        precomputed_travel_time_dict = pickle.load(f)
 
     home_locs = [[415000,4496719],[417000,4491719],[418000,4491719],[420000,4493719],[410000,4492319],[415000,4496719],[417000,4491719],[418000,4491719],[420000,4493719],[410000,4492319]]
     for person_id in range(10):

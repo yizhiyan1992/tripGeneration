@@ -40,14 +40,16 @@ def load_stochastic_activity_data(activity_filepath: pathlib.WindowsPath) -> pd.
     activity_df : pandas.DataFrame
         return the activity dataframe
     """
-    trip_df = pd.read_csv(activity_filepath, index_col=0)
+    trip_df = pd.read_csv(activity_filepath)
     logging.info("========activity data is successfully loaded.========")
     return trip_df
 
 
-def load_household_location_data():
-    pass
-
+def load_household_location_data(household_filepath: pathlib.WindowsPath) -> pd.DataFrame:
+    household_df = pd.read_csv(household_filepath)
+    household_extract_df = household_df[["id","x","y"]]
+    logging.info("========Household data is successfully loaded.=========")
+    return household_extract_df
 
 
 def load_taz_data(taz_filepath: pathlib.WindowsPath) -> gpd.GeoDataFrame:
@@ -115,6 +117,7 @@ def load_precomputed_travel_time(precomputed_tt_path):
     """
     with open(precomputed_tt_path,"rb") as f:
         precomputed_dict = pickle.load(f)
+    logging.info("========Precomputed travel time dict is successfully loaded.=========")
     return precomputed_dict
 
 
@@ -166,6 +169,11 @@ def load_required_dataset(folder_path, **kwargs):
     else:
         activity_filename = "stochastic_activity.csv"
 
+    if "household" in kwargs:
+        household_filename = kwargs["household"]
+    else:
+        household_filename = "household.csv"
+
     if "poi" in kwargs:
         poi_filename = kwargs["poi"]
     else:
@@ -188,6 +196,7 @@ def load_required_dataset(folder_path, **kwargs):
     poi_fp = folder_dir.joinpath(poi_filename)
     network_fp = folder_dir.joinpath(network_filename)
     activity_fp = folder_dir.joinpath(activity_filename)
+    household_fp = folder_dir.joinpath(household_filename)
     precomputed_tt_fp = folder_dir.joinpath(precomputed_tt_filename)
     # add hh distribution later
     if not folder_dir.is_dir():
@@ -202,12 +211,15 @@ def load_required_dataset(folder_path, **kwargs):
         raise FileNotFoundError("The network file does not exist.")
     if not activity_fp.is_file():
         raise FileNotFoundError("The activity file does not exist.")
+    if not household_fp.is_file():
+        raise FileNotFoundError("The household file does not exist.")
     if not precomputed_tt_fp.is_file():
         raise FileNotFoundError("The precomputed travel time pkl file does not exist.")
     # add check for hh distribution later
 
     # start to load each data
     activity_df = load_stochastic_activity_data(activity_fp)
+    household_df = load_household_location_data(household_fp)
     poi_df = load_poi_data(poi_fp)
     taz_gdf = load_taz_data(taz_fp)
     od_dict = load_od_data(od_dir)
@@ -220,6 +232,7 @@ def load_required_dataset(folder_path, **kwargs):
     logging.info("********all required data are successfully loaded.********")
     data_dict ={
         "activity_df" : activity_df,
+        "household_df": household_df,
         "poi_df" : poi_df,
         "taz_gdf" : taz_gdf,
         "od_dict" : od_dict,

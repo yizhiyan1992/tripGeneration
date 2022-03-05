@@ -7,6 +7,7 @@ import logging
 import pathlib
 from pathlib import Path
 
+from dijkstar import Graph, find_path
 import geopandas as gpd
 import numpy as np
 import networkx
@@ -124,13 +125,13 @@ def get_nearest_edge(loc,balltree_nodes,nodes_df,new_edges_df) ->int:
 
 
 def find_qualified_tazs_using_shortestpath(
-        start_taz_id,
+        start_node,
         qualified_tazs_gdf,
-        precomputed_travel_time_dict,
         driving_time,
-        threshold):
+        threshold,
+        graph):
     """
-    :param start_taz_id:
+    :param start_node:
     :param qualified_tazs_gdf:
     :param precomputed_travel_time_dict: a dict that records the pre-computed shortest travel time between each TAZ centroid
     :param driving_time: the driving time in the MC simulated result.
@@ -142,12 +143,32 @@ def find_qualified_tazs_using_shortestpath(
     upper_bound = driving_time*(1+threshold)
     lower_bound = driving_time*(1-threshold)
     output_index = []
+    est_time=[]
     for i, n in enumerate(taz_nereast_nodes):
-        query_string = str(start_taz_id)+"-"+str(n)
-        travel_time = precomputed_travel_time_dict.get(query_string, 100000)
+        try:
+            result = find_path(graph, start_node, n)
+            travel_time = result.total_cost
+        except:
+            travel_time = 100000
         if lower_bound<=travel_time<=upper_bound:
             output_index.append(taz_ids[i])
-    return qualified_tazs_gdf[qualified_tazs_gdf['TAZID'].isin(output_index)]
+            est_time.append(travel_time)
+    output_gdf= qualified_tazs_gdf[qualified_tazs_gdf['TAZID'].isin(output_index)]
+    output_gdf['est_time']=est_time
+    return output_gdf
+
+
+def make_graph(edges_df):
+    graph = Graph()
+    u = list(edges_df['u'])
+    v = list(edges_df['v'])
+    t = list(edges_df['travel_time'])
+    osmid = list(edges_df['osmid'])
+    osm_edge_dict = {}
+    for i in range(len(u)):
+        graph.add_edge(u[i], v[i], t[i])
+        osm_edge_dict[str(u[i]) + ":" + str(v[i])] = osmid[i]
+    return graph,osm_edge_dict
 
 
 def find_qualified_tazs_with_poi(
@@ -214,6 +235,7 @@ def parse_output(output: list)->pd.DataFrame:
     activity_duration_list = []
     trip_purpose_list = []
     driving_duration_list = []
+    est_time_list=[]
 
     for o in output:
         x_list.append(o[0])
@@ -224,15 +246,16 @@ def parse_output(output: list)->pd.DataFrame:
         nearest_id_list.append(o[5])
         nearest_index_list.append(o[6])
         driving_duration_list.append(o[7])
+        est_time_list.append(o[8])
 
     df = pd.DataFrame(np.array(
         [x_list, y_list, end_time_list, activity_duration_list, trip_purpose_list, nearest_id_list,
-         nearest_index_list, driving_duration_list]).T,
-                      columns=['x', 'y', 'end_time', 'duration', 'purpose', 'nearest_edge_id','nearest_edge_index', 'driving_minutes'])
+         nearest_index_list, driving_duration_list, est_time_list]).T,
+                      columns=['x', 'y', 'end_time', 'duration', 'purpose', 'nearest_edge_id','nearest_edge_index', 'driving_minutes','est_time'])
     return df
 
 
-def get_osm_travel_time(trip_df,graph,new_edges,edges):
+def get_osm_travel_time(trip_df,new_edges,shortest_path_graph):
     """
     supplement a new column for the output dataframe: the estimated travel time in OSM
     """
@@ -241,19 +264,25 @@ def get_osm_travel_time(trip_df,graph,new_edges,edges):
     for i in range(1,len(edge_index_list)):
         start_node = new_edges.iloc[edge_index_list[i - 1], :]['u']
         end_node = new_edges.iloc[edge_index_list[i], :]['v']
-        travel_path=ox.shortest_path(graph,start_node,end_node,weight="travel_time")
-        travel_time=get_total_travel_time(travel_path,edges)
-        travel_time=round(travel_time/60,1)
+        result=find_path(shortest_path_graph,start_node,end_node)
+        travel_time=round(result.total_cost/60,1)
         travel_time_list.append(travel_time)
     trip_df['actual_travel_time_osm']=travel_time_list
     return trip_df
 
 
-def get_total_travel_time(path_list,edges_df):
-    total_t=0
-    for i in range(1,len(path_list)):
-        o=path_list[i-1]
-        d=path_list[i]
-        t=edges_df[edges_df.index==(o,d,0)]['travel_time'].values[0]
-        total_t+=t
-    return total_t
+def generate_new_edges_df(edges):
+    new_edges=edges.copy()
+    new_edges=new_edges.reset_index()
+    edge_dict = {}
+    u = list(new_edges['u'])
+    v = list(new_edges['v'])
+    dup_idx_list = []
+    for i in range(len(new_edges)):
+        s = str(u[i]) + ":" + str(v[i])
+        if s in edge_dict:
+            dup_idx_list.append(i)
+        edge_dict[s] = 0
+    new_edges = new_edges.drop(index=dup_idx_list)
+    new_edges['osmid'] = list(range(len(new_edges)))
+    return new_edges

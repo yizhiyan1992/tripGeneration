@@ -27,16 +27,16 @@ def map_single_trip(
         new_edges: pd.DataFrame,
         poi_df: pd.DataFrame,
         od_dict: dict,
-        precomputed_travel_time_dict: dict,
         balltree_taz,
-        balltree_nodes):
+        balltree_nodes,
+        shortest_path_graph):
 
     start_loc = home_loc
     work_loc = None
     output = []
     last_activity = datetime.strptime("2022/01/01 04:00:00", "%Y/%m/%d %H:%M:%S")
     home_edge_id, home_edge_index = get_nearest_edge(home_loc, balltree_nodes, nodes, new_edges)
-    output.append([home_loc[0], home_loc[1],last_activity, None, 1, home_edge_id, home_edge_index,None])
+    output.append([home_loc[0], home_loc[1],last_activity, None, 1, home_edge_id, home_edge_index,None,None])
 
     for transient in parsed_trip:
         # calculate activity duration
@@ -59,11 +59,11 @@ def map_single_trip(
         # to be mapped for the first time.
         if trip_purpose == 1: #home
             start_loc = home_loc
-            output.append([home_loc[0], home_loc[1], transient[3], activity_duration, trip_purpose, home_edge_id,home_edge_index, driving_time])
+            output.append([home_loc[0], home_loc[1], transient[3], activity_duration, trip_purpose, home_edge_id,home_edge_index, driving_time,None])
             continue
         if trip_purpose == 2 and work_loc is not None: # work
             start_loc = work_loc
-            output.append([work_loc[0], work_loc[1], transient[3], activity_duration, trip_purpose, work_edge_id,work_edge_index, driving_time])
+            output.append([work_loc[0], work_loc[1], transient[3], activity_duration, trip_purpose, work_edge_id,work_edge_index, driving_time,None])
             continue
 
         # ==================mapping process=======================
@@ -74,7 +74,7 @@ def map_single_trip(
         # 2. search qualified TAZs that can be rearched around the driving time
         iter_time = 0
         while True:
-            qualified_time_tazs = find_qualified_tazs_using_shortestpath(start_taz_nearest_node, qualified_tazs, precomputed_travel_time_dict,driving_time*c.SECONDS,c.THRESHOLD)
+            qualified_time_tazs = find_qualified_tazs_using_shortestpath(start_taz_nearest_node, qualified_tazs, driving_time*c.SECONDS,c.THRESHOLD,shortest_path_graph)
             if len(qualified_time_tazs) != 0:
                 break
             driving_time=driving_time//2
@@ -86,7 +86,7 @@ def map_single_trip(
         # 4. randomly select a TAZ based on OD distribution
         hour = int(transient[3].hour)
         next_taz = get_random_taz_destination(start_taz, qualified_time_poi_tazs_list, od_dict, hour)
-
+        est_time=qualified_time_poi_tazs[qualified_time_poi_tazs['TAZID']==next_taz]['est_time'].values[0]/60
         # 5. randomly select a POI in that TAZ
         poi_index, poi_x, poi_y = select_poi(next_taz, poi_df, trip_purpose)
 
@@ -97,6 +97,6 @@ def map_single_trip(
             work_loc = [poi_x, poi_y]
             work_edge_id = nearest_edge_id
             work_edge_index = nearest_edge_index
-        output.append([poi_x,poi_y,transient[3],activity_duration,trip_purpose,nearest_edge_id,nearest_edge_index,driving_time])
+        output.append([poi_x,poi_y,transient[3],activity_duration,trip_purpose,nearest_edge_id,nearest_edge_index,driving_time,est_time])
 
     return output

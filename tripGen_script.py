@@ -29,10 +29,12 @@ if __name__ == "__main__":
     poi_df = data_dict["poi_df"]
     taz_gdf = data_dict["taz_gdf"]
     od_dict = data_dict["od_dict"]
-    precomputed_travel_time_dict = data_dict["precomputed_travel_time_dict"]
+    #precomputed_travel_time_dict = data_dict["precomputed_travel_time_dict"]
     network_graph = data_dict["network_graph"]
     nodes, edges = ox.graph_to_gdfs(network_graph)
-    new_edges = edges.reset_index()
+    #new_edges = edges.reset_index()
+    new_edges = utils.generate_new_edges_df(edges)
+    shortest_path_graph,_ =utils.make_graph(new_edges)
 
     logging.info("==========================================")
     logging.info("=======       pre process          =======")
@@ -60,17 +62,17 @@ if __name__ == "__main__":
     logging.info("==========================================")
 
     output_list = []
-    for person_id in range(len(household_df)):
+    #for person_id in range(len(household_df)):
+    for person_id in range(20):
         home_loc = [household_df["x"][person_id],household_df["y"][person_id]]
         print(f"^^^^^^^^matching person {household_df['id'][person_id]} ^^^^^^^^^^")
         try:
             map_result = map_single_trip(home_loc, parsed_trips_list[person_id], taz_gdf, nodes,new_edges,poi_df,\
-                             od_dict,precomputed_travel_time_dict,balltree_taz,balltree_nodes)
+                             od_dict,balltree_taz,balltree_nodes,shortest_path_graph)
             if map_result is None:
                 print(f"{household_df['id'][person_id]} matching failed.")
                 continue
             map_result_df = utils.parse_output(map_result)
-            map_result_df_with_osm_time = utils.get_osm_travel_time(map_result_df,network_graph,new_edges,edges)
             map_result_df["person_id"] = household_df['id'][person_id]
             print(map_result_df)
             output_list.append(map_result_df)
